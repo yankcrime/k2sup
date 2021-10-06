@@ -207,9 +207,9 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		installStr := createVersionStr(k3sVersion, k3sChannel)
 
 		installK3scommand := fmt.Sprintf("%s | %s %s sudo sh -\n", getScript, installk3sExec, installStr)
-		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now --no-block rke2-server")
+		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now rke2-server")
 
-		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat /etc/rancher/rke2/rke2.yaml || true\n")
+		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat /etc/rancher/rke2/rke2.yaml\n")
 
 		if local {
 			operator := operator.ExecOperator{}
@@ -303,19 +303,19 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				fmt.Printf("ssh: %s\n", installK3scommand)
 			}
 
-			res, err := sshOperator.Execute(installK3scommand)
+			_, err := sshOperator.Execute(installK3scommand)
+			if err != nil {
+				return fmt.Errorf("error received processing command: %s", err)
+			}
 
-			fmt.Printf("Enabling and starting systemd unit: %s\n", ensureSystemdcommand)
+			//fmt.Printf("Result: %s %s\n", string(res.StdOut), string(res.StdErr))
+
+			fmt.Printf("Enabling and starting RKE2, please wait...%s\n", ensureSystemdcommand)
 			_, err = sshOperator.Execute(ensureSystemdcommand)
 			if err != nil {
 				return err
 			}
 
-			if err != nil {
-				return fmt.Errorf("error received processing command: %s", err)
-			}
-
-			fmt.Printf("Result: %s %s\n", string(res.StdOut), string(res.StdErr))
 		}
 
 		if printCommand {

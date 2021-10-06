@@ -194,7 +194,7 @@ func MakeJoin() *cobra.Command {
 
 		defer sshOperator.Close()
 
-		getTokenCommand := fmt.Sprintf(sudoPrefix + "cat /var/lib/rancher/k3s/server/node-token\n")
+		getTokenCommand := fmt.Sprintf(sudoPrefix + "cat /var/lib/rancher/rke2/server/node-token\n")
 		if printCommand {
 			fmt.Printf("ssh: %s\n", getTokenCommand)
 		}
@@ -316,7 +316,8 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 		serverAgent,
 	)
 
-	installAgentServerCommand := fmt.Sprintf("%s | %s", getScript, installk3sExec)
+	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installk3sExec)
+	ensureSystemdcommand := fmt.Sprint("sudo systemctl enable --now rke2-server")
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentServerCommand)
@@ -325,6 +326,12 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	res, err := sshOperator.Execute(installAgentServerCommand)
 	if err != nil {
 		return errors.Wrap(err, "unable to setup agent")
+	}
+
+	fmt.Printf("Enabling and starting RKE2, please wait...%s\n", ensureSystemdcommand)
+	_, err = sshOperator.Execute(ensureSystemdcommand)
+	if err != nil {
+		return err
 	}
 
 	if len(res.StdErr) > 0 {
@@ -402,7 +409,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 		serverAgent,
 	)
 
-	installAgentCommand := fmt.Sprintf("%s | %s", getScript, installK3sExec)
+	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installK3sExec)
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentCommand)
@@ -437,12 +444,12 @@ func createVersionStr(k3sVersion, k3sChannel string) string {
 func makeJoinExec(serverIP, joinToken, installStr, k3sExtraArgs string, serverAgent bool) string {
 
 	installEnvVar := []string{}
-	installEnvVar = append(installEnvVar, fmt.Sprintf("K3S_URL='https://%s:6443'", serverIP))
-	installEnvVar = append(installEnvVar, fmt.Sprintf("K3S_TOKEN='%s'", joinToken))
+	installEnvVar = append(installEnvVar, fmt.Sprintf("RKE2_URL='https://%s:9345'", serverIP))
+	installEnvVar = append(installEnvVar, fmt.Sprintf("RKE2_TOKEN='%s'", joinToken))
 	installEnvVar = append(installEnvVar, installStr)
 
 	if serverAgent {
-		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_RKE2_EXEC='server --server https://%s:6443'", serverIP))
+		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_RKE2_TYPE='server --server https://%s:9345'", serverIP))
 	}
 
 	joinExec := strings.Join(installEnvVar, " ")
