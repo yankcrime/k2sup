@@ -38,7 +38,7 @@ type k3sExecOptions struct {
 // https://update.k3s.io/v1-release/channels
 const PinnedK3sChannel = "stable"
 
-const getScript = "curl -sfL https://get.k3s.io"
+const getScript = "curl -sfL https://get.rke2.io"
 
 // MakeInstall creates the install command
 func MakeInstall() *cobra.Command {
@@ -206,9 +206,10 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 		installStr := createVersionStr(k3sVersion, k3sChannel)
 
-		installK3scommand := fmt.Sprintf("%s | %s %s sh -\n", getScript, installk3sExec, installStr)
+		installK3scommand := fmt.Sprintf("%s | %s %s sudo sh -\n", getScript, installk3sExec, installStr)
+		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now --no-block rke2-server")
 
-		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat /etc/rancher/k3s/k3s.yaml\n")
+		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat /etc/rancher/rke2/rke2.yaml || true\n")
 
 		if local {
 			operator := operator.ExecOperator{}
@@ -227,6 +228,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				if len(res.StdOut) > 0 {
 					fmt.Printf("stdout: %q", res.StdOut)
 				}
+
 			} else {
 				fmt.Printf("Skipping local installation\n")
 			}
@@ -302,6 +304,12 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			}
 
 			res, err := sshOperator.Execute(installK3scommand)
+
+			fmt.Printf("Enabling and starting systemd unit: %s\n", ensureSystemdcommand)
+			_, err = sshOperator.Execute(ensureSystemdcommand)
+			if err != nil {
+				return err
+			}
 
 			if err != nil {
 				return fmt.Errorf("error received processing command: %s", err)
@@ -540,7 +548,7 @@ func makeInstallExec(cluster bool, host, tlsSAN string, options k3sExecOptions) 
 		extraArgsCmdline += a + " "
 	}
 
-	installExec := "INSTALL_K3S_EXEC='server"
+	installExec := "INSTALL_RKE2_EXEC='server"
 	if cluster {
 		installExec += " --cluster-init"
 	}

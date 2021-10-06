@@ -427,9 +427,9 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 func createVersionStr(k3sVersion, k3sChannel string) string {
 	installStr := ""
 	if len(k3sVersion) > 0 {
-		installStr = fmt.Sprintf("INSTALL_K3S_VERSION='%s'", k3sVersion)
+		installStr = fmt.Sprintf("INSTALL_RKE2_VERSION='%s'", k3sVersion)
 	} else {
-		installStr = fmt.Sprintf("INSTALL_K3S_CHANNEL='%s'", k3sChannel)
+		installStr = fmt.Sprintf("INSTALL_RKE2_CHANNEL='%s'", k3sChannel)
 	}
 	return installStr
 }
@@ -442,7 +442,7 @@ func makeJoinExec(serverIP, joinToken, installStr, k3sExtraArgs string, serverAg
 	installEnvVar = append(installEnvVar, installStr)
 
 	if serverAgent {
-		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_K3S_EXEC='server --server https://%s:6443'", serverIP))
+		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_RKE2_EXEC='server --server https://%s:6443'", serverIP))
 	}
 
 	joinExec := strings.Join(installEnvVar, " ")

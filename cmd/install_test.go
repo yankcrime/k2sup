@@ -156,7 +156,7 @@ func Test_makeInstallExec(t *testing.T) {
 			NoExtras:     k3sNoExtras,
 			ExtraArgs:    k3sExtraArgs,
 		})
-	want := "INSTALL_K3S_EXEC='server --tls-san raspberrypi.local'"
+	want := "INSTALL_RKE2_EXEC='server --tls-san raspberrypi.local'"
 	if got != want {
 		t.Errorf("want: %q, got: %q", want, got)
 	}
@@ -177,7 +177,7 @@ func Test_makeInstallExec_Cluster(t *testing.T) {
 			NoExtras:     k3sNoExtras,
 			ExtraArgs:    k3sExtraArgs,
 		})
-	want := "INSTALL_K3S_EXEC='server --cluster-init --tls-san 127.0.0.1'"
+	want := "INSTALL_RKE2_EXEC='server --cluster-init --tls-san 127.0.0.1'"
 	if got != want {
 		t.Errorf("want: %q, got: %q", want, got)
 	}
@@ -198,7 +198,7 @@ func Test_makeInstallExec_SAN(t *testing.T) {
 			NoExtras:     k3sNoExtras,
 			ExtraArgs:    k3sExtraArgs,
 		})
-	want := "INSTALL_K3S_EXEC='server --tls-san 192.168.0.1'"
+	want := "INSTALL_RKE2_EXEC='server --tls-san 192.168.0.1'"
 	if got != want {
 		t.Errorf("want: %q, got: %q", want, got)
 	}
@@ -219,7 +219,7 @@ func Test_makeInstallExec_IPSec(t *testing.T) {
 			NoExtras:     k3sNoExtras,
 			ExtraArgs:    k3sExtraArgs,
 		})
-	want := "INSTALL_K3S_EXEC='server --tls-san 127.0.0.1 --flannel-backend ipsec'"
+	want := "INSTALL_RKE2_EXEC='server --tls-san 127.0.0.1 --flannel-backend ipsec'"
 	if got != want {
 		t.Errorf("want: %q, got: %q", want, got)
 	}
@@ -240,7 +240,7 @@ func Test_makeInstallExec_Datastore(t *testing.T) {
 			NoExtras:     k3sNoExtras,
 			ExtraArgs:    k3sExtraArgs,
 		})
-	want := "INSTALL_K3S_EXEC='server --tls-san 192.168.0.1 --datastore-endpoint mysql://doadmin:show-password@tcp(db-mysql-lon1-40939-do-user-2197152-0.b.db.ondigitalocean.com:25060)/defaultdb'"
+	want := "INSTALL_RKE2_EXEC='server --tls-san 192.168.0.1 --datastore-endpoint mysql://doadmin:show-password@tcp(db-mysql-lon1-40939-do-user-2197152-0.b.db.ondigitalocean.com:25060)/defaultdb'"
 	if got != want {
 		t.Errorf("want: %q, got: %q", want, got)
 	}
@@ -261,7 +261,7 @@ func Test_makeInstallExec_Datastore_NoExtras(t *testing.T) {
 			NoExtras:     k3sNoExtras,
 			ExtraArgs:    k3sExtraArgs,
 		})
-	want := "INSTALL_K3S_EXEC='server --tls-san 192.168.0.1 --datastore-endpoint mysql://doadmin:show-password@tcp(db-mysql-lon1-40939-do-user-2197152-0.b.db.ondigitalocean.com:25060)/defaultdb --no-deploy servicelb --no-deploy traefik'"
+	want := "INSTALL_RKE2_EXEC='server --tls-san 192.168.0.1 --datastore-endpoint mysql://doadmin:show-password@tcp(db-mysql-lon1-40939-do-user-2197152-0.b.db.ondigitalocean.com:25060)/defaultdb --no-deploy servicelb --no-deploy traefik'"
 	if got != want {
 		t.Errorf("want: %q, got: %q", want, got)
 	}
