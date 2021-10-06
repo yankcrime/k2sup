@@ -309,18 +309,25 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	defer sshOperator.Close()
 
 	installk3sExec := makeJoinExec(
-		serverHost,
 		strings.TrimSpace(joinToken),
 		installStr,
-		k3sExtraArgs,
 		serverAgent,
 	)
 
+	fmt.Println("Creating config")
+	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
+
+	populateConfig := fmt.Sprintf("sudo mkdir -p /etc/rancher/rke2 ; echo '%s' | sudo tee /etc/rancher/rke2/config.yaml", rkeConfig)
 	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installk3sExec)
 	ensureSystemdcommand := fmt.Sprint("sudo systemctl enable --now rke2-server")
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentServerCommand)
+	}
+
+	_, err := sshOperator.Execute(populateConfig)
+	if err != nil {
+		return err
 	}
 
 	res, err := sshOperator.Execute(installAgentServerCommand)
@@ -402,12 +409,15 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 	serverAgent := false
 
 	installK3sExec := makeJoinExec(
-		serverHost,
-		strings.TrimSpace(joinToken),
 		installStr,
 		k3sExtraArgs,
 		serverAgent,
 	)
+
+	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
+
+	populateConfig := fmt.Sprintf("sudo mkdir -p /etc/rancher/rke2 ; echo '%s' | sudo tee /etc/rancher/rke2/config.yaml", rkeConfig)
+	ensureSystemdcommand := fmt.Sprint("sudo systemctl enable --now rke2-agent")
 
 	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installK3sExec)
 
@@ -415,10 +425,21 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 		fmt.Printf("ssh: %s\n", installAgentCommand)
 	}
 
+	_, err := sshOperator.Execute(populateConfig)
+	if err != nil {
+		return err
+	}
+
 	res, err := sshOperator.Execute(installAgentCommand)
 
 	if err != nil {
 		return errors.Wrap(err, "unable to setup agent")
+	}
+
+	fmt.Printf("Enabling and starting RKE2, please wait...%s\n", ensureSystemdcommand)
+	_, err = sshOperator.Execute(ensureSystemdcommand)
+	if err != nil {
+		return err
 	}
 
 	if len(res.StdErr) > 0 {
@@ -441,15 +462,16 @@ func createVersionStr(k3sVersion, k3sChannel string) string {
 	return installStr
 }
 
-func makeJoinExec(serverIP, joinToken, installStr, k3sExtraArgs string, serverAgent bool) string {
+func makeConfig(server, token string) string {
+	return fmt.Sprintf("server: https://%s:9345 \ntoken: %s\n", server, token)
+}
 
+func makeJoinExec(installStr, k3sExtraArgs string, serverAgent bool) string {
 	installEnvVar := []string{}
-	installEnvVar = append(installEnvVar, fmt.Sprintf("RKE2_URL='https://%s:9345'", serverIP))
-	installEnvVar = append(installEnvVar, fmt.Sprintf("RKE2_TOKEN='%s'", joinToken))
 	installEnvVar = append(installEnvVar, installStr)
 
 	if serverAgent {
-		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_RKE2_TYPE='server --server https://%s:9345'", serverIP))
+		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_RKE2_TYPE='server'"))
 	}
 
 	joinExec := strings.Join(installEnvVar, " ")
