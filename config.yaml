@@ -1,2 +1,0 @@
-tls-san:
-  - "rke2.192.168.20.176.dnsify.me"
