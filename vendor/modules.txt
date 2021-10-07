@@ -1,9 +1,6 @@
 # github.com/alexellis/go-execute v0.0.0-20200124154445-8697e4e28c5e
 ## explicit
 github.com/alexellis/go-execute/pkg/v1
-# github.com/bramvdbogaerde/go-scp v1.1.0
-## explicit
-github.com/bramvdbogaerde/go-scp
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
 # github.com/mitchellh/go-homedir v1.1.0
@@ -35,7 +32,7 @@ golang.org/x/crypto/ssh
 golang.org/x/crypto/ssh/agent
 golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/sys v0.0.0-20210525143221-35b2ab0089ea
+# golang.org/x/sys v0.0.0-20201119102817-f84b799fce68
 golang.org/x/sys/cpu
 golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9

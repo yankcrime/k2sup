@@ -4,7 +4,6 @@ go 1.15
 
 require (
 	github.com/alexellis/go-execute v0.0.0-20200124154445-8697e4e28c5e
-	github.com/bramvdbogaerde/go-scp v1.1.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/morikuni/aec v1.0.0
 	github.com/pkg/errors v0.9.1
