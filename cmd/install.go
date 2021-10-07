@@ -69,14 +69,12 @@ func MakeInstall() *cobra.Command {
 	command.Flags().String("ssh-key", "~/.ssh/id_rsa", "The ssh key to use for remote login")
 	command.Flags().Int("ssh-port", 22, "The port on which to connect for ssh")
 	command.Flags().Bool("sudo", true, "Use sudo for installation. e.g. set to false when using the root user and no sudo is available.")
-	command.Flags().Bool("skip-install", false, "Skip the k3s installer")
+	command.Flags().Bool("skip-install", false, "Skip the RKE2 installer")
 	command.Flags().Bool("print-config", false, "Print the kubeconfig obtained from the server after installation")
 
 	command.Flags().String("local-path", "kubeconfig", "Local path to save the kubeconfig file")
 	command.Flags().String("context", "default", "Set the name of the kubeconfig context.")
-	command.Flags().Bool("no-extras", false, `Disable "servicelb" and "traefik"`)
 
-	command.Flags().Bool("ipsec", false, "Enforces and/or activates optional extra argument for k3s: flannel-backend option: ipsec")
 	command.Flags().Bool("merge", false, `Merge the config with existing kubeconfig if it already exists.
 Provide the --local-path flag with --merge if a kubeconfig already exists in some other directory`)
 
@@ -84,8 +82,6 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 	command.Flags().String("version", "", "Set a version to install, overrides channel")
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or pinned v1.19")
-
-	command.Flags().String("tls-san", "", "Use an additional IP or hostname for the API server")
 
 	command.PreRunE = func(command *cobra.Command, args []string) error {
 		_, err := command.Flags().GetIP("ip")
@@ -110,8 +106,6 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
-		tlsSAN, _ := command.Flags().GetString("tls-san")
-
 		useSudo, err := command.Flags().GetBool("sudo")
 		if err != nil {
 			return err
@@ -135,12 +129,6 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		if err != nil {
 			return err
 		}
-		k3sNoExtras, err := command.Flags().GetBool("no-extras")
-		if err != nil {
-			return err
-		}
-
-		flannelIPSec, _ := command.Flags().GetBool("ipsec")
 
 		ip, err := command.Flags().GetIP("ip")
 		if err != nil {
@@ -155,8 +143,6 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		}
 		log.Println(host)
 
-		cluster, _ := command.Flags().GetBool("cluster")
-		datastore, _ := command.Flags().GetString("datastore")
 		printCommand, err := command.Flags().GetBool("print-command")
 		if err != nil {
 			return err
@@ -171,12 +157,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
-		installk3sExec := makeInstallExec(cluster, host, tlsSAN,
-			k3sExecOptions{
-				Datastore:    datastore,
-				FlannelIPSec: flannelIPSec,
-				NoExtras:     k3sNoExtras,
-			})
+		installk3sExec := "INSTALL_RKE2_EXEC='server'"
 
 		if len(k3sVersion) == 0 && len(k3sChannel) == 0 {
 			return fmt.Errorf("give a value for --k3s-version or --k3s-channel")
@@ -472,41 +453,4 @@ func rewriteKubeconfig(kubeconfig string, host string, context string) []byte {
 	)
 
 	return []byte(kubeconfigReplacer.Replace(kubeconfig))
-}
-
-func makeInstallExec(cluster bool, host, tlsSAN string, options k3sExecOptions) string {
-	extraArgs := []string{}
-	if len(options.Datastore) > 0 {
-		extraArgs = append(extraArgs, fmt.Sprintf("--datastore-endpoint %s", options.Datastore))
-	}
-	if options.FlannelIPSec {
-		extraArgs = append(extraArgs, "--flannel-backend ipsec")
-	}
-
-	if options.NoExtras {
-		extraArgs = append(extraArgs, "--no-deploy servicelb")
-		extraArgs = append(extraArgs, "--no-deploy traefik")
-	}
-
-	extraArgs = append(extraArgs, options.ExtraArgs)
-	extraArgsCmdline := ""
-	for _, a := range extraArgs {
-		extraArgsCmdline += a + " "
-	}
-
-	installExec := "INSTALL_RKE2_EXEC='server"
-
-	san := host
-	if len(tlsSAN) > 0 {
-		san = tlsSAN
-	}
-	installExec += fmt.Sprintf(" --tls-san %s", san)
-
-	if trimmed := strings.TrimSpace(extraArgsCmdline); len(trimmed) > 0 {
-		installExec += fmt.Sprintf(" %s", trimmed)
-	}
-
-	installExec += "'"
-
-	return installExec
 }

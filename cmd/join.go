@@ -300,14 +300,12 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	}
 
 	installStr := createVersionStr(k3sVersion, k3sChannel)
-	serverAgent := true
+
+	fmt.Println(installStr)
 
 	defer sshOperator.Close()
 
-	installk3sExec := makeJoinExec(
-		installStr,
-		serverAgent,
-	)
+	installk3sExec := installStr + fmt.Sprintf(" INSTALL_RKE2_TYPE='server' sh -s -")
 
 	fmt.Println("Creating config")
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
@@ -400,13 +398,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 	defer sshOperator.Close()
 
 	installStr := createVersionStr(k3sVersion, k3sChannel)
-
-	serverAgent := false
-
-	installK3sExec := makeJoinExec(
-		installStr,
-		serverAgent,
-	)
+	installK3sExec := installStr + " sh -s -"
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
@@ -458,18 +450,4 @@ func createVersionStr(k3sVersion, Channel string) string {
 
 func makeConfig(server, token string) string {
 	return fmt.Sprintf("server: https://%s:9345 \ntoken: %s\n", server, token)
-}
-
-func makeJoinExec(installStr string, serverAgent bool) string {
-	installEnvVar := []string{}
-	installEnvVar = append(installEnvVar, installStr)
-
-	if serverAgent {
-		installEnvVar = append(installEnvVar, fmt.Sprintf("INSTALL_RKE2_TYPE='server'"))
-	}
-
-	joinExec := strings.Join(installEnvVar, " ")
-	joinExec += " sh -s -"
-
-	return joinExec
 }
