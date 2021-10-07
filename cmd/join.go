@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"runtime"
 	"strings"
@@ -55,6 +56,7 @@ func MakeJoin() *cobra.Command {
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
 
 	command.Flags().String("version", "", "Set a version to install, overrides k3s-channel")
+	command.Flags().String("config", "", "RKE2 configuration file to use")
 
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or i.e. v1.19")
 
@@ -113,6 +115,11 @@ func MakeJoin() *cobra.Command {
 			return err
 		}
 		k3sChannel, err := command.Flags().GetString("channel")
+		if err != nil {
+			return err
+		}
+
+		configFile, err := command.Flags().GetString("config")
 		if err != nil {
 			return err
 		}
@@ -214,9 +221,9 @@ func MakeJoin() *cobra.Command {
 
 		var boostrapErr error
 		if server {
-			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, printCommand)
+			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, configFile, printCommand)
 		} else {
-			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, printCommand)
+			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, configFile, printCommand)
 		}
 
 		return boostrapErr
@@ -249,7 +256,7 @@ func MakeJoin() *cobra.Command {
 	return command
 }
 
-func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sVersion, k3sChannel string, printCommand bool) error {
+func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, configFile string, printCommand bool) error {
 	address := fmt.Sprintf("%s:%d", host, port)
 
 	var sshOperator *operator.SSHOperator
@@ -305,12 +312,29 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	defer sshOperator.Close()
 
+	if configFile != "" {
+		configFileContents, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return err
+		}
+		_, err = sshOperator.Execute("sudo mkdir -p " + rke2ConfigPath)
+		if err != nil {
+			return err
+		}
+
+		putConfigCommand := fmt.Sprintf("echo '" + string(configFileContents) + "' | sudo tee " + rke2ConfigFile)
+		_, err = sshOperator.ExecuteStdio(putConfigCommand, false)
+		if err != nil {
+			return err
+		}
+	}
+
 	installk3sExec := installStr + fmt.Sprintf(" INSTALL_RKE2_TYPE='server' sh -s -")
 
 	fmt.Println("Creating config")
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
-	populateConfig := fmt.Sprintf("sudo mkdir -p /etc/rancher/rke2 ; echo '%s' | sudo tee /etc/rancher/rke2/config.yaml", rkeConfig)
+	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
 	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installk3sExec)
 	ensureSystemdcommand := fmt.Sprintf("sudo systemctl enable --now rke2-server")
 
@@ -344,7 +368,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	return nil
 }
 
-func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sVersion, k3sChannel string, printCommand bool) error {
+func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, configFile string, printCommand bool) error {
 
 	address := fmt.Sprintf("%s:%d", host, port)
 
@@ -397,12 +421,29 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 
 	defer sshOperator.Close()
 
+	if configFile != "" {
+		configFileContents, err := ioutil.ReadFile(configFile)
+		if err != nil {
+			return err
+		}
+		_, err = sshOperator.Execute("sudo mkdir -p " + rke2ConfigPath)
+		if err != nil {
+			return err
+		}
+
+		putConfigCommand := fmt.Sprintf("echo '" + string(configFileContents) + "' | sudo tee " + rke2ConfigFile)
+		_, err = sshOperator.ExecuteStdio(putConfigCommand, false)
+		if err != nil {
+			return err
+		}
+	}
+
 	installStr := createVersionStr(k3sVersion, k3sChannel)
 	installK3sExec := installStr + " sh -s -"
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
-	populateConfig := fmt.Sprintf("sudo mkdir -p /etc/rancher/rke2 ; echo '%s' | sudo tee /etc/rancher/rke2/config.yaml", rkeConfig)
+	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
 	ensureSystemdcommand := fmt.Sprint("sudo systemctl enable --now rke2-agent")
 
 	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installK3sExec)
@@ -422,7 +463,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 		return errors.Wrap(err, "unable to setup agent")
 	}
 
-	fmt.Printf("Enabling and starting RKE2, please wait...%s\n", ensureSystemdcommand)
+	fmt.Printf("🐌 Enabling and starting RKE2, please wait...\n")
 	_, err = sshOperator.Execute(ensureSystemdcommand)
 	if err != nil {
 		return err

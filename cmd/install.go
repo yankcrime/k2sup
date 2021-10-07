@@ -40,6 +40,9 @@ const PinnedChannel = "stable"
 
 const getScript = "curl -sfL https://get.rke2.io"
 
+const rke2ConfigPath = "/etc/rancher/rke2/"
+const rke2ConfigFile = rke2ConfigPath + "config.yaml"
+
 // MakeInstall creates the install command
 func MakeInstall() *cobra.Command {
 	var command = &cobra.Command{
@@ -82,6 +85,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 	command.Flags().String("version", "", "Set a version to install, overrides channel")
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or pinned v1.19")
+	command.Flags().String("config", "", "RKE2 configuration file to use")
 
 	command.PreRunE = func(command *cobra.Command, args []string) error {
 		_, err := command.Flags().GetIP("ip")
@@ -157,6 +161,11 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
+		configFile, err := command.Flags().GetString("config")
+		if err != nil {
+			return err
+		}
+
 		installk3sExec := "INSTALL_RKE2_EXEC='server'"
 
 		if len(k3sVersion) == 0 && len(k3sChannel) == 0 {
@@ -168,7 +177,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		installK3scommand := fmt.Sprintf("%s | %s %s sudo sh -\n", getScript, installk3sExec, installStr)
 		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now rke2-server")
 
-		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat /etc/rancher/rke2/rke2.yaml\n")
+		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat " + rke2ConfigPath + "rke2.yaml\n")
 
 		port, _ := command.Flags().GetInt("ssh-port")
 
@@ -181,6 +190,8 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		address := fmt.Sprintf("%s:%d", host, port)
 
 		var sshOperator *operator.SSHOperator
+		var sshConfig *ssh.ClientConfig
+
 		var initialSSHErr error
 		if runtime.GOOS != "windows" {
 
@@ -190,13 +201,13 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				// Try SSH agent without parsing key files, will succeed if the user
 				// has already added a key to the SSH Agent, or if using a configured
 				// smartcard
-				config := &ssh.ClientConfig{
+				sshConfig = &ssh.ClientConfig{
 					User:            user,
 					Auth:            []ssh.AuthMethod{sshAgentAuthMethod},
 					HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 				}
 
-				sshOperator, initialSSHErr = operator.NewSSHOperator(address, config)
+				sshOperator, initialSSHErr = operator.NewSSHOperator(address, sshConfig)
 			}
 		} else {
 			initialSSHErr = errors.New("ssh-agent unsupported on windows")
@@ -212,13 +223,13 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 			defer closeSSHAgent()
 
-			config := &ssh.ClientConfig{
+			sshConfig = &ssh.ClientConfig{
 				User:            user,
 				Auth:            []ssh.AuthMethod{publicKeyFileAuth},
 				HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 			}
 
-			sshOperator, err = operator.NewSSHOperator(address, config)
+			sshOperator, err = operator.NewSSHOperator(address, sshConfig)
 
 			if err != nil {
 				return errors.Wrapf(err, "unable to connect to %s over ssh", address)
@@ -229,6 +240,22 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 		if !skipInstall {
 
+			if configFile != "" {
+				configFileContents, err := ioutil.ReadFile(configFile)
+				if err != nil {
+					return err
+				}
+				_, err = sshOperator.Execute("sudo mkdir -p " + rke2ConfigPath)
+				if err != nil {
+					return err
+				}
+
+				putConfigCommand := fmt.Sprintf("echo '" + string(configFileContents) + "' | sudo tee " + rke2ConfigFile)
+				_, err = sshOperator.ExecuteStdio(putConfigCommand, false)
+				if err != nil {
+					return err
+				}
+			}
 			if printCommand {
 				fmt.Printf("ssh: %s\n", installK3scommand)
 			}
