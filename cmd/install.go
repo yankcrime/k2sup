@@ -31,12 +31,12 @@ type k3sExecOptions struct {
 	NoExtras     bool
 }
 
-// PinnedK3sChannel will track the stable channel of the K3s API,
+// PinnedChannel will track the stable channel of the K3s API,
 // so for production use, you should pin to a specific version
 // such as v1.19
 // Channels API available at:
 // https://update.k3s.io/v1-release/channels
-const PinnedK3sChannel = "stable"
+const PinnedChannel = "stable"
 
 const getScript = "curl -sfL https://get.rke2.io"
 
@@ -44,18 +44,16 @@ const getScript = "curl -sfL https://get.rke2.io"
 func MakeInstall() *cobra.Command {
 	var command = &cobra.Command{
 		Use:   "install",
-		Short: "Install k3s on a server via SSH",
-		Long: `Install k3s on a server via SSH.
+		Short: "Install RKE2 on a server via SSH",
+		Long: `Install RKE2 on a server via SSH.
 
 ` + SupportMsg,
 		Example: `  k3sup install --ip IP --user USER
 
-  k3sup install --local --k3s-version v1.19.7
-  
   k3sup install --ip IP --cluster
   
   k3sup install --ip IP --k3s-channel latest
-  k3sup install --host HOST --k3s-channel stable
+  k3sup install --host HOST --channel stable
 
   k3sup install --host HOST \
     --ssh-key $HOME/ec2-key.pem --user ubuntu`,
@@ -81,15 +79,11 @@ func MakeInstall() *cobra.Command {
 	command.Flags().Bool("ipsec", false, "Enforces and/or activates optional extra argument for k3s: flannel-backend option: ipsec")
 	command.Flags().Bool("merge", false, `Merge the config with existing kubeconfig if it already exists.
 Provide the --local-path flag with --merge if a kubeconfig already exists in some other directory`)
-	command.Flags().Bool("local", false, "Perform a local install without using ssh")
-	command.Flags().Bool("cluster", false, "Form a cluster using embedded etcd (requires K8s >= 1.19)")
 
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
-	command.Flags().String("datastore", "", "connection-string for the k3s datastore to enable HA - i.e. \"mysql://username:password@tcp(hostname:3306)/database-name\"")
 
-	command.Flags().String("k3s-version", "", "Set a version to install, overrides k3s-channel")
-	command.Flags().String("k3s-extra-args", "", "Additional arguments to pass to k3s installer, wrapped in quotes (e.g. --k3s-extra-args '--no-deploy servicelb')")
-	command.Flags().String("k3s-channel", PinnedK3sChannel, "Release channel: stable, latest, or pinned v1.19")
+	command.Flags().String("version", "", "Set a version to install, overrides channel")
+	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or pinned v1.19")
 
 	command.Flags().String("tls-san", "", "Use an additional IP or hostname for the API server")
 
@@ -133,15 +127,11 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			sudoPrefix = "sudo "
 		}
 
-		k3sVersion, err := command.Flags().GetString("k3s-version")
+		k3sVersion, err := command.Flags().GetString("version")
 		if err != nil {
 			return err
 		}
-		k3sExtraArgs, err := command.Flags().GetString("k3s-extra-args")
-		if err != nil {
-			return err
-		}
-		k3sChannel, err := command.Flags().GetString("k3s-channel")
+		k3sChannel, err := command.Flags().GetString("channel")
 		if err != nil {
 			return err
 		}
@@ -151,8 +141,6 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		}
 
 		flannelIPSec, _ := command.Flags().GetBool("ipsec")
-
-		local, _ := command.Flags().GetBool("local")
 
 		ip, err := command.Flags().GetIP("ip")
 		if err != nil {
@@ -183,21 +171,11 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
-		if len(datastore) > 0 {
-			if strings.Index(datastore, "ssl-mode=REQUIRED") > -1 {
-				return fmt.Errorf("remove ssl-mode=REQUIRED from your datastore string, it is not supported by the k3s syntax")
-			}
-			if strings.Index(datastore, "mysql") > -1 && strings.Index(datastore, "tcp") == -1 {
-				return fmt.Errorf("you must specify the mysql host as tcp(host:port) or tcp(ip:port), see the k3s docs for more: https://rancher.com/docs/k3s/latest/en/installation/ha")
-			}
-		}
-
 		installk3sExec := makeInstallExec(cluster, host, tlsSAN,
 			k3sExecOptions{
 				Datastore:    datastore,
 				FlannelIPSec: flannelIPSec,
 				NoExtras:     k3sNoExtras,
-				ExtraArgs:    k3sExtraArgs,
 			})
 
 		if len(k3sVersion) == 0 && len(k3sChannel) == 0 {
@@ -210,35 +188,6 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now rke2-server")
 
 		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat /etc/rancher/rke2/rke2.yaml\n")
-
-		if local {
-			operator := operator.ExecOperator{}
-
-			if !skipInstall {
-				fmt.Printf("Executing: %s\n", installK3scommand)
-
-				res, err := operator.Execute(installK3scommand)
-				if err != nil {
-					return err
-				}
-
-				if len(res.StdErr) > 0 {
-					fmt.Printf("stderr: %q", res.StdErr)
-				}
-				if len(res.StdOut) > 0 {
-					fmt.Printf("stdout: %q", res.StdOut)
-				}
-
-			} else {
-				fmt.Printf("Skipping local installation\n")
-			}
-
-			if err = obtainKubeconfig(operator, getConfigcommand, host, context, localKubeconfig, merge, printConfig); err != nil {
-				return err
-			}
-
-			return nil
-		}
 
 		port, _ := command.Flags().GetInt("ssh-port")
 
@@ -308,14 +257,11 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				return fmt.Errorf("error received processing command: %s", err)
 			}
 
-			//fmt.Printf("Result: %s %s\n", string(res.StdOut), string(res.StdErr))
-
-			fmt.Printf("Enabling and starting RKE2, please wait...%s\n", ensureSystemdcommand)
+			fmt.Printf("🐌 Enabling and starting RKE2, please wait...\n")
 			_, err = sshOperator.Execute(ensureSystemdcommand)
 			if err != nil {
 				return err
 			}
-
 		}
 
 		if printCommand {
@@ -549,9 +495,6 @@ func makeInstallExec(cluster bool, host, tlsSAN string, options k3sExecOptions) 
 	}
 
 	installExec := "INSTALL_RKE2_EXEC='server"
-	if cluster {
-		installExec += " --cluster-init"
-	}
 
 	san := host
 	if len(tlsSAN) > 0 {

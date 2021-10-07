@@ -23,8 +23,8 @@ https://github.com/sponsors/alexellis`
 func MakeJoin() *cobra.Command {
 	var command = &cobra.Command{
 		Use:   "join",
-		Short: "Install the k3s agent on a remote host and join it to an existing server",
-		Long: `Install the k3s agent on a remote host and join it to an existing server
+		Short: "Install the RKE2 agent on a remote host and join it to an existing server",
+		Long: `Install the RKE2 agent on a remote host and join it to an existing server
 
 ` + SupportMsg,
 		Example: `  k3sup join --user root --server-ip IP --ip IP
@@ -32,7 +32,7 @@ func MakeJoin() *cobra.Command {
   k3sup join --user pi \
     --server-host HOST \
     --host HOST \
-    --k3s-channel latest`,
+    --channel latest`,
 		SilenceUsage: true,
 	}
 
@@ -54,9 +54,9 @@ func MakeJoin() *cobra.Command {
 	command.Flags().Bool("server", false, "Join the cluster as a server rather than as an agent for the embedded etcd mode")
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
 
-	command.Flags().String("k3s-extra-args", "", "Additional arguments to pass to k3s installer, wrapped in quotes (e.g. --k3s-extra-args '--node-taint key=value:NoExecute')")
-	command.Flags().String("k3s-version", "", "Set a version to install, overrides k3s-channel")
-	command.Flags().String("k3s-channel", PinnedK3sChannel, "Release channel: stable, latest, or i.e. v1.19")
+	command.Flags().String("version", "", "Set a version to install, overrides k3s-channel")
+
+	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or i.e. v1.19")
 
 	command.RunE = func(command *cobra.Command, args []string) error {
 		fmt.Printf("Running: k3sup join\n")
@@ -108,21 +108,17 @@ func MakeJoin() *cobra.Command {
 			serverPort, _ = command.Flags().GetInt("server-ssh-port")
 		}
 
-		k3sVersion, err := command.Flags().GetString("k3s-version")
+		k3sVersion, err := command.Flags().GetString("version")
 		if err != nil {
 			return err
 		}
-		k3sExtraArgs, err := command.Flags().GetString("k3s-extra-args")
-		if err != nil {
-			return err
-		}
-		k3sChannel, err := command.Flags().GetString("k3s-channel")
+		k3sChannel, err := command.Flags().GetString("channel")
 		if err != nil {
 			return err
 		}
 
 		if len(k3sVersion) == 0 && len(k3sChannel) == 0 {
-			return fmt.Errorf("give a value for --k3s-version or --k3s-channel")
+			return fmt.Errorf("give a value for --version or --channel")
 		}
 
 		printCommand, err := command.Flags().GetBool("print-command")
@@ -218,9 +214,9 @@ func MakeJoin() *cobra.Command {
 
 		var boostrapErr error
 		if server {
-			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, k3sExtraArgs, k3sVersion, k3sChannel, printCommand)
+			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, printCommand)
 		} else {
-			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, k3sExtraArgs, k3sVersion, k3sChannel, printCommand)
+			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, k3sVersion, k3sChannel, printCommand)
 		}
 
 		return boostrapErr
@@ -253,7 +249,7 @@ func MakeJoin() *cobra.Command {
 	return command
 }
 
-func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sExtraArgs, k3sVersion, k3sChannel string, printCommand bool) error {
+func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sVersion, k3sChannel string, printCommand bool) error {
 	address := fmt.Sprintf("%s:%d", host, port)
 
 	var sshOperator *operator.SSHOperator
@@ -309,7 +305,6 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	defer sshOperator.Close()
 
 	installk3sExec := makeJoinExec(
-		strings.TrimSpace(joinToken),
 		installStr,
 		serverAgent,
 	)
@@ -319,7 +314,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	populateConfig := fmt.Sprintf("sudo mkdir -p /etc/rancher/rke2 ; echo '%s' | sudo tee /etc/rancher/rke2/config.yaml", rkeConfig)
 	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installk3sExec)
-	ensureSystemdcommand := fmt.Sprint("sudo systemctl enable --now rke2-server")
+	ensureSystemdcommand := fmt.Sprintf("sudo systemctl enable --now rke2-server")
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentServerCommand)
@@ -335,7 +330,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 		return errors.Wrap(err, "unable to setup agent")
 	}
 
-	fmt.Printf("Enabling and starting RKE2, please wait...%s\n", ensureSystemdcommand)
+	fmt.Printf("🐌 Enabling and starting RKE2, please wait...\n")
 	_, err = sshOperator.Execute(ensureSystemdcommand)
 	if err != nil {
 		return err
@@ -351,7 +346,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	return nil
 }
 
-func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sExtraArgs, k3sVersion, k3sChannel string, printCommand bool) error {
+func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, k3sVersion, k3sChannel string, printCommand bool) error {
 
 	address := fmt.Sprintf("%s:%d", host, port)
 
@@ -410,7 +405,6 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 
 	installK3sExec := makeJoinExec(
 		installStr,
-		k3sExtraArgs,
 		serverAgent,
 	)
 
@@ -452,12 +446,12 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 	return nil
 }
 
-func createVersionStr(k3sVersion, k3sChannel string) string {
+func createVersionStr(k3sVersion, Channel string) string {
 	installStr := ""
 	if len(k3sVersion) > 0 {
 		installStr = fmt.Sprintf("INSTALL_RKE2_VERSION='%s'", k3sVersion)
 	} else {
-		installStr = fmt.Sprintf("INSTALL_RKE2_CHANNEL='%s'", k3sChannel)
+		installStr = fmt.Sprintf("INSTALL_RKE2_CHANNEL='%s'", Channel)
 	}
 	return installStr
 }
@@ -466,7 +460,7 @@ func makeConfig(server, token string) string {
 	return fmt.Sprintf("server: https://%s:9345 \ntoken: %s\n", server, token)
 }
 
-func makeJoinExec(installStr, k3sExtraArgs string, serverAgent bool) string {
+func makeJoinExec(installStr string, serverAgent bool) string {
 	installEnvVar := []string{}
 	installEnvVar = append(installEnvVar, installStr)
 
@@ -476,11 +470,6 @@ func makeJoinExec(installStr, k3sExtraArgs string, serverAgent bool) string {
 
 	joinExec := strings.Join(installEnvVar, " ")
 	joinExec += " sh -s -"
-
-	if len(k3sExtraArgs) > 0 {
-		installEnvVar = append(installEnvVar, k3sExtraArgs)
-		joinExec += fmt.Sprintf(" %s", k3sExtraArgs)
-	}
 
 	return joinExec
 }
