@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"runtime"
 	"strings"
@@ -313,17 +312,8 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	defer sshOperator.Close()
 
 	if configFile != "" {
-		configFileContents, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			return err
-		}
-		_, err = sshOperator.Execute("sudo mkdir -p " + rke2ConfigPath)
-		if err != nil {
-			return err
-		}
-
-		putConfigCommand := fmt.Sprintf("echo '" + string(configFileContents) + "' | sudo tee " + rke2ConfigFile)
-		_, err = sshOperator.ExecuteStdio(putConfigCommand, false)
+		sshOperator.CopySCP(configFile, "/tmp/rke2config.yaml")
+		_, err := sshOperator.Execute(fmt.Sprintf("sudo mkdir -p %s ; sudo mv /tmp/rke2config.yaml %s", rke2ConfigPath, rke2ConfigFile))
 		if err != nil {
 			return err
 		}
@@ -331,7 +321,6 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	installk3sExec := installStr + " INSTALL_RKE2_TYPE='server' sh -s -"
 
-	fmt.Println("Creating config")
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
 	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
@@ -422,17 +411,8 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 	defer sshOperator.Close()
 
 	if configFile != "" {
-		configFileContents, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			return err
-		}
-		_, err = sshOperator.Execute("sudo mkdir -p " + rke2ConfigPath)
-		if err != nil {
-			return err
-		}
-
-		putConfigCommand := fmt.Sprintf("echo '" + string(configFileContents) + "' | sudo tee " + rke2ConfigFile)
-		_, err = sshOperator.ExecuteStdio(putConfigCommand, false)
+		sshOperator.CopySCP(configFile, "/tmp/rke2config.yaml")
+		_, err := sshOperator.Execute(fmt.Sprintf("sudo mkdir -p %s ; sudo mv /tmp/rke2config.yaml %s", rke2ConfigPath, rke2ConfigFile))
 		if err != nil {
 			return err
 		}

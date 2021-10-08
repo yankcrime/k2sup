@@ -232,19 +232,9 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		defer sshOperator.Close()
 
 		if !skipInstall {
-
 			if configFile != "" {
-				configFileContents, err := ioutil.ReadFile(configFile)
-				if err != nil {
-					return err
-				}
-				_, err = sshOperator.Execute("sudo mkdir -p " + rke2ConfigPath)
-				if err != nil {
-					return err
-				}
-
-				putConfigCommand := fmt.Sprintf("echo '" + string(configFileContents) + "' | sudo tee " + rke2ConfigFile)
-				_, err = sshOperator.ExecuteStdio(putConfigCommand, false)
+				sshOperator.CopySCP(configFile, "/tmp/rke2config.yaml")
+				_, err = sshOperator.Execute(fmt.Sprintf("sudo mkdir -p %s ; sudo mv /tmp/rke2config.yaml %s", rke2ConfigPath, rke2ConfigFile))
 				if err != nil {
 					return err
 				}
