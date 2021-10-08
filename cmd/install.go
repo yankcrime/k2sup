@@ -174,7 +174,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 		installStr := createVersionStr(k3sVersion, k3sChannel)
 
-		installK3scommand := fmt.Sprintf("%s | %s %s sudo sh -\n", getScript, installk3sExec, installStr)
+		installK3scommand := fmt.Sprintf("%s | sudo %s %s sh -\n", getScript, installk3sExec, installStr)
 		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now rke2-server")
 
 		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat " + rke2ConfigPath + "rke2.yaml\n")
