@@ -28,9 +28,9 @@ func MakeJoin() *cobra.Command {
 		Long: `Install the RKE2 agent on a remote host and join it to an existing server
 
 ` + SupportMsg,
-		Example: `  k3sup join --user root --server-ip IP --ip IP
+		Example: `  k2sup join --user root --server-ip IP --ip IP
 
-  k3sup join --user pi \
+  k2sup join --user pi \
     --server-host HOST \
     --host HOST \
     --channel latest`,
@@ -61,7 +61,7 @@ func MakeJoin() *cobra.Command {
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or i.e. v1.19")
 
 	command.RunE = func(command *cobra.Command, args []string) error {
-		fmt.Printf("Running: k3sup join\n")
+		fmt.Printf("Running: k2sup join\n")
 
 		ip, err := command.Flags().GetIP("ip")
 		if err != nil {

@@ -101,7 +101,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 	command.RunE = func(command *cobra.Command, args []string) error {
 
-		fmt.Printf("Running: k3sup install\n")
+		fmt.Printf("Running: k2sup install\n")
 
 		localKubeconfig, _ := command.Flags().GetString("local-path")
 
