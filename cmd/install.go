@@ -24,18 +24,11 @@ import (
 
 var kubeconfig []byte
 
-type k3sExecOptions struct {
-	Datastore    string
-	ExtraArgs    string
-	FlannelIPSec bool
-	NoExtras     bool
-}
-
 // PinnedChannel will track the stable channel of the K3s API,
 // so for production use, you should pin to a specific version
 // such as v1.19
 // Channels API available at:
-// https://update.k3s.io/v1-release/channels
+// https://update.rke2.io/v1-release/channels
 const PinnedChannel = "stable"
 
 const getScript = "curl -sfL https://get.rke2.io"
@@ -361,7 +354,7 @@ func mergeConfigs(localKubeconfigPath, context string, k3sconfig []byte) ([]byte
 	// Create a temporary kubeconfig to store the config of the newly create k3s cluster
 	file, err := ioutil.TempFile(os.TempDir(), "k3s-temp-*")
 	if err != nil {
-		return nil, fmt.Errorf("Could not generate a temporary file to store the kuebeconfig: %s", err)
+		return nil, fmt.Errorf("could not generate a temporary file to store the kuebeconfig: %s", err)
 	}
 	defer file.Close()
 
@@ -379,7 +372,7 @@ func mergeConfigs(localKubeconfigPath, context string, k3sconfig []byte) ([]byte
 	cmd.Env = append(os.Environ(), appendKubeConfigENV)
 	data, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("Could not merge kubeconfigs: %s", err)
+		return nil, fmt.Errorf("could not merge kubeconfigs: %s", err)
 	}
 
 	// Remove the temporarily generated file

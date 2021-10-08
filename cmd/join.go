@@ -329,14 +329,14 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 		}
 	}
 
-	installk3sExec := installStr + fmt.Sprintf(" INSTALL_RKE2_TYPE='server' sh -s -")
+	installk3sExec := installStr + " INSTALL_RKE2_TYPE='server' sh -s -"
 
 	fmt.Println("Creating config")
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
 	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
 	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installk3sExec)
-	ensureSystemdcommand := fmt.Sprintf("sudo systemctl enable --now rke2-server")
+	ensureSystemdcommand := "sudo systemctl enable --now rke2-server"
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentServerCommand)
@@ -444,7 +444,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
 	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
-	ensureSystemdcommand := fmt.Sprint("sudo systemctl enable --now rke2-agent")
+	ensureSystemdcommand := "sudo systemctl enable --now rke2-agent"
 
 	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installK3sExec)
 
