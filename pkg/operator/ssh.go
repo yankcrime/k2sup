@@ -5,7 +5,6 @@ import (
 	"io"
 	"os"
 	"sync"
-	"fmt"
 
 	"golang.org/x/crypto/ssh"
 
@@ -36,17 +35,25 @@ func NewSSHOperator(address string, config *ssh.ClientConfig) (*SSHOperator, err
 	return &operator, nil
 }
 
-func (s SSHOperator) CopySCP(source, target string) {
+func (s SSHOperator) CopySCP(source, target string) error {
 	client, err := scp.NewClientBySSH(s.conn)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
 
-	f, _ := os.Open(source)
+	f, err := os.Open(source)
+	if err != nil {
+		return err
+	}
 
 	err = client.CopyFile(f, target, "0644")
+	if err != nil {
+		return err
+	}
 
 	defer f.Close()
+
+	return nil
 }
 
 func (s SSHOperator) ExecuteStdio(command string, stream bool) (CommandRes, error) {
