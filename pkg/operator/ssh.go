@@ -5,9 +5,11 @@ import (
 	"io"
 	"os"
 	"sync"
+	"fmt"
 
 	"golang.org/x/crypto/ssh"
 
+	"github.com/thanhpk/randstr"
 	scp "github.com/bramvdbogaerde/go-scp"
 	
 )
@@ -35,24 +37,19 @@ func NewSSHOperator(address string, config *ssh.ClientConfig) (*SSHOperator, err
 	return &operator, nil
 }
 
-func (s SSHOperator) CopySCP(source, target string) error {
+func (s SSHOperator) CopySCP(source *os.File, target string) error {
 	client, err := scp.NewClientBySSH(s.conn)
 	if err != nil {
 		return err
 	}
 
-	f, err := os.Open(source)
+	tmpfile := string("/tmp/" + randstr.String(8))
+	err = client.CopyFile(source, tmpfile, "0644")
 	if err != nil {
 		return err
 	}
 
-	err = client.CopyFile(f, target, "0644")
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
+	s.Execute(fmt.Sprintf("sudo mv /tmp/%s %s", tmpfile, target))
 	return nil
 }
 

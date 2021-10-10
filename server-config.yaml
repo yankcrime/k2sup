@@ -1,2 +1,4 @@
+node-taint:
+  - "CriticalAddonsOnly=true:NoExecute"
 cni:
   - "cilium"

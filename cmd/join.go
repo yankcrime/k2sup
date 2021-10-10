@@ -5,6 +5,7 @@ import (
 	"net"
 	"runtime"
 	"strings"
+	"os"
 
 	operator "github.com/alexellis/k3sup/pkg/operator"
 	"github.com/pkg/errors"
@@ -311,19 +312,22 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	defer sshOperator.Close()
 
+	sshOperator.Execute(fmt.Sprintf("sudo mkdir -p " + rke2ConfigPath))
+
 	if configFile != "" {
-		sshOperator.CopySCP(configFile, "/tmp/rke2config.yaml")
-		_, err := sshOperator.Execute(fmt.Sprintf("sudo mkdir -p %s ; sudo mv /tmp/rke2config.yaml %s", rke2ConfigPath, rke2ConfigFile))
+		f, err := os.Open(configFile)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to open specified config file %q", configFile)
 		}
+		defer f.Close()
+		sshOperator.CopySCP(f, rke2ConfigFile)
 	}
 
 	installRKE2Exec := installStr + " INSTALL_RKE2_TYPE='server' sh -s -"
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
-	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
+	populateConfig := fmt.Sprintf("echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
 	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installRKE2Exec)
 	ensureSystemdcommand := "sudo systemctl enable --now rke2-server"
 
@@ -410,12 +414,15 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 
 	defer sshOperator.Close()
 
+	sshOperator.Execute(fmt.Sprintf("sudo mkdir -p " + rke2ConfigPath))
+
 	if configFile != "" {
-		sshOperator.CopySCP(configFile, "/tmp/rke2config.yaml")
-		_, err := sshOperator.Execute(fmt.Sprintf("sudo mkdir -p %s ; sudo mv /tmp/rke2config.yaml %s", rke2ConfigPath, rke2ConfigFile))
+		f, err := os.Open(configFile)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to open specified config file %q", configFile)
 		}
+		defer f.Close()
+		sshOperator.CopySCP(f, rke2ConfigFile)
 	}
 
 	installStr := createVersionStr(rke2Version, rke2Channel)
@@ -423,7 +430,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
-	populateConfig := fmt.Sprintf("sudo mkdir -p "+rke2ConfigPath+" ; echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
+	populateConfig := fmt.Sprintf("echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
 	ensureSystemdcommand := "sudo systemctl enable --now rke2-agent"
 
 	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installRKE2Exec)

@@ -21,6 +21,9 @@ github.com/spf13/cobra
 # github.com/spf13/pflag v1.0.5
 ## explicit
 github.com/spf13/pflag
+# github.com/thanhpk/randstr v1.0.4
+## explicit
+github.com/thanhpk/randstr
 # golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 ## explicit
 golang.org/x/crypto/blowfish
