@@ -24,7 +24,7 @@ import (
 
 var kubeconfig []byte
 
-// PinnedChannel will track the stable channel of the K3s API,
+// PinnedChannel will track the stable channel of the RKE2 API,
 // so for production use, you should pin to a specific version
 // such as v1.19
 // Channels API available at:
@@ -49,7 +49,7 @@ func MakeInstall() *cobra.Command {
   k2sup install --ip IP --cluster
   k2sup install --ip IP --cluster --config $(pwd)/server-config.yaml
   
-  k2sup install --ip IP --k3s-channel latest
+  k2sup install --ip IP --rke2-channel latest
   k2sup install --host HOST --channel stable
 
   k2sup install --host HOST \
@@ -61,7 +61,7 @@ func MakeInstall() *cobra.Command {
 	command.Flags().String("user", "root", "Username for SSH login")
 
 	command.Flags().String("host", "", "Public hostname of node on which to install agent")
-	command.Flags().String("host-ip", "", "Public hostname of an existing k3s server")
+	command.Flags().String("host-ip", "", "Public hostname of an existing RKE2 server")
 
 	command.Flags().String("ssh-key", "~/.ssh/id_rsa", "The ssh key to use for remote login")
 	command.Flags().Int("ssh-port", 22, "The port on which to connect for ssh")
@@ -119,11 +119,11 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			sudoPrefix = "sudo "
 		}
 
-		k3sVersion, err := command.Flags().GetString("version")
+		rke2Version, err := command.Flags().GetString("version")
 		if err != nil {
 			return err
 		}
-		k3sChannel, err := command.Flags().GetString("channel")
+		rke2Channel, err := command.Flags().GetString("channel")
 		if err != nil {
 			return err
 		}
@@ -160,15 +160,15 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
-		installk3sExec := "INSTALL_RKE2_EXEC='server'"
+		installRKE2Exec := "INSTALL_RKE2_EXEC='server'"
 
-		if len(k3sVersion) == 0 && len(k3sChannel) == 0 {
-			return fmt.Errorf("give a value for --k3s-version or --k3s-channel")
+		if len(rke2Version) == 0 && len(rke2Channel) == 0 {
+			return fmt.Errorf("give a value for --rke2-version or --rke2-channel")
 		}
 
-		installStr := createVersionStr(k3sVersion, k3sChannel)
+		installStr := createVersionStr(rke2Version, rke2Channel)
 
-		installK3scommand := fmt.Sprintf("%s | sudo %s %s sh -\n", getScript, installk3sExec, installStr)
+		installRKE2command := fmt.Sprintf("%s | sudo %s %s sh -\n", getScript, installRKE2Exec, installStr)
 		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now rke2-server")
 
 		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat " + rke2ConfigPath + "rke2.yaml\n")
@@ -241,10 +241,10 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				}
 			}
 			if printCommand {
-				fmt.Printf("ssh: %s\n", installK3scommand)
+				fmt.Printf("ssh: %s\n", installRKE2command)
 			}
 
-			_, err := sshOperator.Execute(installK3scommand)
+			_, err := sshOperator.Execute(installRKE2command)
 			if err != nil {
 				return fmt.Errorf("error received processing command: %s", err)
 			}
@@ -341,15 +341,15 @@ kubectl get node -o wide
 	return nil
 }
 
-func mergeConfigs(localKubeconfigPath, context string, k3sconfig []byte) ([]byte, error) {
-	// Create a temporary kubeconfig to store the config of the newly create k3s cluster
-	file, err := ioutil.TempFile(os.TempDir(), "k3s-temp-*")
+func mergeConfigs(localKubeconfigPath, context string, rke2config []byte) ([]byte, error) {
+	// Create a temporary kubeconfig to store the config of the newly created RKE2 cluster
+	file, err := ioutil.TempFile(os.TempDir(), "rke2-temp-*")
 	if err != nil {
 		return nil, fmt.Errorf("could not generate a temporary file to store the kuebeconfig: %s", err)
 	}
 	defer file.Close()
 
-	if err := writeConfig(file.Name(), []byte(k3sconfig), context, true); err != nil {
+	if err := writeConfig(file.Name(), []byte(rke2config), context, true); err != nil {
 		return nil, err
 	}
 
