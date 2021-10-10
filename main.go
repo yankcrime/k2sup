@@ -17,7 +17,7 @@ func main() {
 	printk3supASCIIArt := cmd.PrintK3supASCIIArt
 
 	var rootCmd = &cobra.Command{
-		Use: "k3sup",
+		Use: "k2sup",
 		Run: func(cmd *cobra.Command, args []string) {
 			printk3supASCIIArt()
 			cmd.Help()

@@ -21,7 +21,7 @@ func MakeVersion() *cobra.Command {
 	var command = &cobra.Command{
 		Use:          "version",
 		Short:        "Print the version",
-		Example:      `  k3sup version`,
+		Example:      `  k2sup version`,
 		SilenceUsage: false,
 	}
 	command.Run = func(cmd *cobra.Command, args []string) {
@@ -39,8 +39,7 @@ func MakeVersion() *cobra.Command {
 	return command
 }
 
-const k3supFigletStr = ` _    _____                 
- _    ____
+const k3supFigletStr = ` _    ____
 | | _|___ \ ___ _   _ _ __
 | |/ / __) / __| | | | '_ \
 |   < / __/\__ \ |_| | |_) |
