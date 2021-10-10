@@ -7,8 +7,8 @@
 
 export VERIFY_CHECKSUM=0
 export ALIAS=""
-export OWNER=alexellis
-export REPO=k3sup
+export OWNER=yankcrime
+export REPO=k2sup
 export SUCCESS_CMD="$REPO version"
 export BINLOCATION="/usr/local/bin"
 
@@ -177,8 +177,8 @@ getPackage() {
 thanks() {
     echo
     echo "================================================================"
-    echo "  Thanks for choosing k3sup."
-    echo "  Support the project through GitHub Sponsors"
+    echo "  Thanks for choosing k2sup."
+    echo "  Support the k3sup project through GitHub Sponsors"
     echo "" 
     echo "  https://github.com/sponsors/alexellis" 
     echo "================================================================"
