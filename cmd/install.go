@@ -35,6 +35,7 @@ const getScript = "curl -sfL https://get.rke2.io"
 
 const rke2ConfigPath = "/etc/rancher/rke2/"
 const rke2ConfigFile = rke2ConfigPath + "config.yaml"
+const containerdRegistriesFile = rke2ConfigPath + "registries.yaml"
 
 // MakeInstall creates the install command
 func MakeInstall() *cobra.Command {
@@ -80,6 +81,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 	command.Flags().String("version", "", "Set a version to install, overrides channel")
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or pinned v1.19")
 	command.Flags().String("config", "", "RKE2 configuration file to use")
+	command.Flags().String("registries", "", "containerd registry configuration file to use")
 
 	command.PreRunE = func(command *cobra.Command, args []string) error {
 		_, err := command.Flags().GetIP("ip")
@@ -156,6 +158,11 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		}
 
 		configFile, err := command.Flags().GetString("config")
+		if err != nil {
+			return err
+		}
+
+		registriesFile, err := command.Flags().GetString("registries")
 		if err != nil {
 			return err
 		}
@@ -242,6 +249,15 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				}
 				defer f.Close()
 				sshOperator.CopySCP(f, rke2ConfigFile)
+			}
+
+			if registriesFile != "" {
+				f, err := os.Open(registriesFile)
+				if err != nil {
+					return errors.Wrapf(err, "unable to open specified config file %q", registriesFile)
+				}
+				defer f.Close()
+				sshOperator.CopySCP(f, containerdRegistriesFile)
 			}
 
 			if printCommand {

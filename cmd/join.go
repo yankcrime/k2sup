@@ -56,9 +56,9 @@ func MakeJoin() *cobra.Command {
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
 
 	command.Flags().String("version", "", "Set a version to install, overrides --channel")
-	command.Flags().String("config", "", "RKE2 configuration file to use")
-
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or i.e. v1.19")
+	command.Flags().String("config", "", "RKE2 configuration file to use")
+	command.Flags().String("registries", "", "containerd registry configuration file to use")
 
 	command.RunE = func(command *cobra.Command, args []string) error {
 		fmt.Printf("Running: k2sup join\n")
@@ -120,6 +120,11 @@ func MakeJoin() *cobra.Command {
 		}
 
 		configFile, err := command.Flags().GetString("config")
+		if err != nil {
+			return err
+		}
+
+		registriesFile, err := command.Flags().GetString("registries")
 		if err != nil {
 			return err
 		}
@@ -221,9 +226,9 @@ func MakeJoin() *cobra.Command {
 
 		var boostrapErr error
 		if server {
-			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, printCommand)
+			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, printCommand)
 		} else {
-			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, printCommand)
+			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, printCommand)
 		}
 
 		return boostrapErr
@@ -256,7 +261,7 @@ func MakeJoin() *cobra.Command {
 	return command
 }
 
-func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile string, printCommand bool) error {
+func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile string, registriesFile string, printCommand bool) error {
 	address := fmt.Sprintf("%s:%d", host, port)
 
 	var sshOperator *operator.SSHOperator
@@ -323,6 +328,15 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 		sshOperator.CopySCP(f, rke2ConfigFile)
 	}
 
+	if registriesFile != "" {
+		f, err := os.Open(registriesFile)
+		if err != nil {
+			return errors.Wrapf(err, "unable to open specified config file %q", registriesFile)
+		}
+		defer f.Close()
+		sshOperator.CopySCP(f, containerdRegistriesFile)
+	}
+
 	installRKE2Exec := installStr + " INSTALL_RKE2_TYPE='server' sh -s -"
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
@@ -361,7 +375,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	return nil
 }
 
-func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile string, printCommand bool) error {
+func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile string, printCommand bool) error {
 
 	address := fmt.Sprintf("%s:%d", host, port)
 
@@ -423,6 +437,15 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 		}
 		defer f.Close()
 		sshOperator.CopySCP(f, rke2ConfigFile)
+	}
+
+	if registriesFile != "" {
+		f, err := os.Open(registriesFile)
+		if err != nil {
+			return errors.Wrapf(err, "unable to open specified config file %q", registriesFile)
+		}
+		defer f.Close()
+		sshOperator.CopySCP(f, containerdRegistriesFile)
 	}
 
 	installStr := createVersionStr(rke2Version, rke2Channel)

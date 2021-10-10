@@ -49,7 +49,7 @@ func (s SSHOperator) CopySCP(source *os.File, target string) error {
 		return err
 	}
 
-	s.Execute(fmt.Sprintf("sudo mv /tmp/%s %s", tmpfile, target))
+	s.Execute(fmt.Sprintf("sudo mv %s %s", tmpfile, target))
 	return nil
 }
 
