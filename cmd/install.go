@@ -49,7 +49,7 @@ func MakeInstall() *cobra.Command {
   k2sup install --ip IP --cluster
   k2sup install --ip IP --cluster --config $(pwd)/server-config.yaml
   
-  k2sup install --ip IP --rke2-channel latest
+  k2sup install --ip IP --channel latest
   k2sup install --host HOST --channel stable
 
   k2sup install --host HOST \
@@ -163,7 +163,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		installRKE2Exec := "INSTALL_RKE2_EXEC='server'"
 
 		if len(rke2Version) == 0 && len(rke2Channel) == 0 {
-			return fmt.Errorf("give a value for --rke2-version or --rke2-channel")
+			return fmt.Errorf("give a value for --version or --channel")
 		}
 
 		installStr := createVersionStr(rke2Version, rke2Channel)

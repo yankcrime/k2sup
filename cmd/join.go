@@ -54,7 +54,7 @@ func MakeJoin() *cobra.Command {
 	command.Flags().Bool("server", false, "Join the cluster as a server rather than as an agent for the embedded etcd mode")
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
 
-	command.Flags().String("version", "", "Set a version to install, overrides rke2-channel")
+	command.Flags().String("version", "", "Set a version to install, overrides --channel")
 	command.Flags().String("config", "", "RKE2 configuration file to use")
 
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or i.e. v1.19")
