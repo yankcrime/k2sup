@@ -44,14 +44,15 @@ func MakeInstall() *cobra.Command {
 		Long: `Install RKE2 on a server via SSH.
 
 ` + SupportMsg,
-		Example: `  k3sup install --ip IP --user USER
+		Example: `  k2sup install --ip IP --user USER
 
-  k3sup install --ip IP --cluster
+  k2sup install --ip IP --cluster
+  k2sup install --ip IP --cluster --config $(pwd)/server-config.yaml
   
-  k3sup install --ip IP --k3s-channel latest
-  k3sup install --host HOST --channel stable
+  k2sup install --ip IP --k3s-channel latest
+  k2sup install --host HOST --channel stable
 
-  k3sup install --host HOST \
+  k2sup install --host HOST \
     --ssh-key $HOME/ec2-key.pem --user ubuntu`,
 		SilenceUsage: true,
 	}

@@ -37,7 +37,7 @@ func MakeJoin() *cobra.Command {
 	}
 
 	command.Flags().IP("ip", net.ParseIP("127.0.0.1"), "Public IP of node on which to install agent")
-	command.Flags().IP("server-ip", net.ParseIP("127.0.0.1"), "Public IP of an existing k3s server")
+	command.Flags().IP("server-ip", net.ParseIP("127.0.0.1"), "Public IP of an existing RKE2 server")
 
 	command.Flags().String("host", "", "Public hostname of node on which to install agent")
 	command.Flags().String("server-host", "", "Public hostname of an existing k3s server")
@@ -48,13 +48,13 @@ func MakeJoin() *cobra.Command {
 	command.Flags().String("ssh-key", "~/.ssh/id_rsa", "The ssh key to use for remote login")
 	command.Flags().Int("ssh-port", 22, "The port on which to connect for ssh")
 	command.Flags().Int("server-ssh-port", 22, "The port on which to connect to server for ssh (Default to --ssh-port)")
-	command.Flags().Bool("skip-install", false, "Skip the k3s installer")
+	command.Flags().Bool("skip-install", false, "Skip the RKE2 installer")
 	command.Flags().Bool("sudo", true, "Use sudo for installation. e.g. set to false when using the root user and no sudo is available.")
 
 	command.Flags().Bool("server", false, "Join the cluster as a server rather than as an agent for the embedded etcd mode")
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
 
-	command.Flags().String("version", "", "Set a version to install, overrides k3s-channel")
+	command.Flags().String("version", "", "Set a version to install, overrides rke2-channel")
 	command.Flags().String("config", "", "RKE2 configuration file to use")
 
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or i.e. v1.19")
