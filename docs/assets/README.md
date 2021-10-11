@@ -1,1 +1,0 @@
-The assets in this directory are not licensed under the MIT license. Please contact support@openfaas.com if you would like to use them.
