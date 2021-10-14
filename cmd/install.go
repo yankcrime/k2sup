@@ -408,7 +408,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		}
 		r := 0
 		for r < 5 {
-			err = obtainKubeconfig(sshOperator, getConfigcommand, host, context, localKubeconfig, merge, printConfig)
+			err = obtainKubeconfig(sshOperator, getConfigcommand, host, vip, context, localKubeconfig, merge, printConfig)
 			if err != nil {
 				r++
 				time.Sleep(2 * time.Second)
@@ -441,7 +441,7 @@ func sshAgentOnly() (ssh.AuthMethod, error) {
 	return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers), nil
 }
 
-func obtainKubeconfig(operator operator.CommandOperator, getConfigcommand, host, context, localKubeconfig string, merge, printConfig bool) error {
+func obtainKubeconfig(operator operator.CommandOperator, getConfigcommand, host, vip, context, localKubeconfig string, merge, printConfig bool) error {
 	res, err := operator.ExecuteStdio(getConfigcommand, false)
 	if err != nil {
 		return fmt.Errorf("error received processing command: %s", err)
@@ -453,7 +453,13 @@ func obtainKubeconfig(operator operator.CommandOperator, getConfigcommand, host,
 
 	absPath, _ := filepath.Abs(localKubeconfig)
 
-	kubeconfig := rewriteKubeconfig(string(res.StdOut), host, context)
+	var kubeconfig []byte
+
+	if vip != "" {
+		kubeconfig = rewriteKubeconfig(string(res.StdOut), vip, context)
+	} else {
+		kubeconfig = rewriteKubeconfig(string(res.StdOut), host, context)
+	}
 
 	if merge {
 		// Create a merged kubeconfig
