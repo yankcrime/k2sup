@@ -343,7 +343,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	populateConfig := fmt.Sprintf("echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
 	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installRKE2Exec)
-	ensureSystemdcommand := "sudo systemctl enable --now rke2-server"
+	ensureSystemdcommand := "sudo systemctl enable --no-block --now rke2-server"
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentServerCommand)
@@ -359,7 +359,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 		return errors.Wrap(err, "unable to setup agent")
 	}
 
-	fmt.Printf("🐌 Enabling and starting RKE2, please wait...\n")
+	fmt.Printf("🐌 Joining server node to cluster, please wait while services start...\n")
 	_, err = sshOperator.Execute(ensureSystemdcommand)
 	if err != nil {
 		return err
@@ -454,7 +454,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
 	populateConfig := fmt.Sprintf("echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
-	ensureSystemdcommand := "sudo systemctl enable --now rke2-agent"
+	ensureSystemdcommand := "sudo systemctl enable --no-block --now rke2-agent"
 
 	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installRKE2Exec)
 
@@ -473,7 +473,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 		return errors.Wrap(err, "unable to setup agent")
 	}
 
-	fmt.Printf("🐌 Enabling and starting RKE2, please wait...\n")
+	fmt.Printf("🐌 Joining agent node to cluster, please be patient while services start...\n")
 	_, err = sshOperator.Execute(ensureSystemdcommand)
 	if err != nil {
 		return err

@@ -175,8 +175,8 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 		installStr := createVersionStr(rke2Version, rke2Channel)
 
-		installRKE2command := fmt.Sprintf("%s | sudo %s %s sh -\n", getScript, installRKE2Exec, installStr)
-		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --now rke2-server")
+		installRKE2command := fmt.Sprintf("%s | %s %s %s sh -\n", getScript, sudoPrefix, installRKE2Exec, installStr)
+		ensureSystemdcommand := fmt.Sprint(sudoPrefix + "systemctl enable --no-block --now rke2-server")
 
 		getConfigcommand := fmt.Sprintf(sudoPrefix + "cat " + rke2ConfigPath + "rke2.yaml\n")
 
@@ -269,7 +269,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 				return fmt.Errorf("error received processing command: %s", err)
 			}
 
-			fmt.Printf("🐌 Enabling and starting RKE2, please wait...\n")
+			fmt.Printf("🐌 Enabling and starting RKE2, please wait while services initialise...\n")
 			_, err = sshOperator.Execute(ensureSystemdcommand)
 			if err != nil {
 				return err
@@ -279,10 +279,16 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		if printCommand {
 			fmt.Printf("ssh: %s\n", getConfigcommand)
 		}
-		if err = obtainKubeconfig(sshOperator, getConfigcommand, host, context, localKubeconfig, merge, printConfig); err != nil {
-			return err
+		r := 0
+		for r < 5 {
+			err = obtainKubeconfig(sshOperator, getConfigcommand, host, context, localKubeconfig, merge, printConfig)
+			if err != nil {
+				r++
+				time.Sleep(2 * time.Second)
+			} else {
+				r = 5
+			}
 		}
-
 		return nil
 	}
 
