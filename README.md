@@ -23,10 +23,29 @@ This will:
 * Use [Cilium](https://cilium.io) as the CNI;
 * Specify an additional IP address and hostname that can be used to connect to the cluster's API.  A post-deployment step would be to configure a loadbalancer or a VIP on `192.168.20.200` which should balance requests across our three server nodes.  Alternatively, see the section below on deploying with a VIP for the control plane.
 
+With this configuration we can install the first node in our cluster:
+
 ```sh
 % k2sup install --ip $(govc vm.ip /42can/vm/server0) --user nick --local-path ~/.kube/rke2.yaml \
   --context rke2 --config $(pwd)/server-config.yaml
+```
 
+RKE2 takes a lot longer than K3s to start up, so at this point we need to be a little patient.  We can switch to the new cluster's context (`rke2` in my example) and attempt to query it after a minute or so, depending on your hardware and Internet connection:
+
+```
+% kubie ctx rke2
+% kubectl get nodes
+NAME      STATUS   ROLES                       AGE   VERSION
+server0   Ready    control-plane,etcd,master   52s   v1.21.5+rke2r2
+```
+
+_(NB: I use [kubie](https://github.com/sbstp/kubie) as an easy way of switching between cluster contexts)_
+
+> If you're curious as to how RKE2's startup is proceeding, or you're suspicious about where it's up to, you'll need to login to the server node and run `journalctl -fu rke2-server`.
+
+Assuming everything's worked as it should, with our initial server node up and ready we can bootstrap the other server nodes:
+
+```
 % for server in server{1..2} ; do
   k2sup join --ip $(govc vm.ip /42can/vm/$server) --server \
   --server-ip  $(govc vm.ip /42can/vm/server0) --user nick \
@@ -34,7 +53,16 @@ This will:
 done
 ```
 
-Agent nodes do not need this configuration passing in, so we can just go ahead and join these to the cluster:
+Again, keep an eye on the progress of these as they come online.  They'll take a little while to appear in the list of nodes, but eventually:
+
+```shell
+NAME      STATUS   ROLES                       AGE     VERSION
+server0   Ready    control-plane,etcd,master   6m37s   v1.21.5+rke2r2
+server1   Ready    control-plane,etcd,master   79s     v1.21.5+rke2r2
+server2   Ready    control-plane,etcd,master   33s     v1.21.5+rke2r2
+```
+
+With the control plane boostrapped, we can turn our attention to the worker nodes (agents).  Agent nodes do not need this configuration passing in, so we can just go ahead and join these to the cluster:
 
 ```
 % for agent in $(for node in agent{0..2} ; do govc vm.ip /42can/vm/$node ; done) ; do
@@ -44,7 +72,7 @@ Agent nodes do not need this configuration passing in, so we can just go ahead a
 
 _NB: The last command uses GNU/parallel to attempt to bootstrap all three worker nodes at the same time._
 
-Assuming the above runs without error, you should be able to switch Kubernetes context and query your new cluster:
+Finally once these agents nodes have bootstrapped we should see the following:
 
 ```
 % kubie ctx rke2
@@ -146,6 +174,3 @@ server0   Ready    control-plane,etcd,master   8m7s    v1.21.5+rke2r2
 server1   Ready    control-plane,etcd,master   4m22s   v1.21.5+rke2r2
 server2   Ready    control-plane,etcd,master   3m19s   v1.21.5+rke2r2
 ```
-
-_(NB: I use [kubie](https://github.com/sbstp/kubie) to switch between cluster contexts)_
-
