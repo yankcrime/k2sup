@@ -11,22 +11,23 @@ In this example, I've six virtual machines deployed on vSphere.  I'm using [govc
 ```yaml
 node-taint:
   - "CriticalAddonsOnly=true:NoExecute"
-tls-san:
-  - "rke2.192.168.20.220.dnsify.me"
 cni:
   - "cilium"
+tls-san:
+  - "192.168.20.200"
+  - "rke2.192.168.20.200.dnsify.me"
 ```
 
 This will:
 * [Taint server nodes](https://docs.rke2.io/install/ha/#2a-optional-consider-server-node-taints) so that they are not schedulable by user workloads;
 * Use [Cilium](https://cilium.io) as the CNI;
-* Specify another hostname that can be used to connect to the cluster API.  A post-deployment step would be to configure a loadbalancer or a VIP on `192.168.20.220` which should balance requests across our three server nodes.
+* Specify an additional IP address and hostname that can be used to connect to the cluster's API.  A post-deployment step would be to configure a loadbalancer or a VIP on `192.168.20.200` which should balance requests across our three server nodes.  Alternatively, see the section below on deploying with a VIP for the control plane.
 
 ```sh
-k2sup install --ip $(govc vm.ip /42can/vm/server0) --user nick --local-path ~/.kube/rke2.yaml \
+% k2sup install --ip $(govc vm.ip /42can/vm/server0) --user nick --local-path ~/.kube/rke2.yaml \
   --context rke2 --config $(pwd)/server-config.yaml
 
-for server in server{1..2} ; do
+% for server in server{1..2} ; do
   k2sup join --ip $(govc vm.ip /42can/vm/$server) --server \
   --server-ip  $(govc vm.ip /42can/vm/server0) --user nick \
   --config $(pwd)/server-config.yaml
@@ -36,7 +37,7 @@ done
 Agent nodes do not need this configuration passing in, so we can just go ahead and join these to the cluster:
 
 ```
-for agent in $(for node in agent{0..2} ; do govc vm.ip /42can/vm/$node ; done) ; do 
+% for agent in $(for node in agent{0..2} ; do govc vm.ip /42can/vm/$node ; done) ; do
   echo $agent ; done | parallel -v -I% k2sup join --ip % \
   --server-ip $(govc vm.ip /42can/vm/server0) --user nick
 ```
@@ -46,8 +47,8 @@ _NB: The last command uses GNU/parallel to attempt to bootstrap all three worker
 Assuming the above runs without error, you should be able to switch Kubernetes context and query your new cluster:
 
 ```
-$ kubie ctx rke2
-$ kubectl get nodes
+% kubie ctx rke2
+% kubectl get nodes
 NAME      STATUS   ROLES                       AGE     VERSION
 agent0    Ready    <none>                      3m45s   v1.21.5+rke2r2
 agent1    Ready    <none>                      3m40s   v1.21.5+rke2r2
@@ -55,6 +56,95 @@ agent2    Ready    <none>                      3m46s   v1.21.5+rke2r2
 server0   Ready    control-plane,etcd,master   15m     v1.21.5+rke2r2
 server1   Ready    control-plane,etcd,master   7m6s    v1.21.5+rke2r2
 server2   Ready    control-plane,etcd,master   5m42s   v1.21.5+rke2r2
+```
+
+### Installing with a VIP for the Control Plane
+k2sup can also deploy [kube-vip](https://kube-vip.io) to present a virtual IP (VIP) for the control plane, providing a fixed-registration address in-line with the RKE2 [high-availability recommendations](https://docs.rke2.io/install/ha/).  First we need to bootstrap the initial server node with two extra options - our chosen VIP address and also the network interface that should be used, and also **we must ensure that this IP address (and any hostnames) are included in the configuration file that RKE2 will use as part of the list of TLS SANs**:
+
+```shell
+% cat server-config.yaml
+---
+node-taint:
+  - "CriticalAddonsOnly=true:NoExecute"
+tls-san:
+  - 192.168.20.200
+  - rke2.192.168.20.200.dnsify.me
+```
+
+Now run the command to configure a VIP with `192.168.20.200` on my node's primary network interface:
+
+```
+% k2sup install --ip $(govc vm.ip /42can/vm/server0) --user nick --local-path ~/.kube/rke2.yaml \
+  --context rke2 --config $(pwd)/server-config.yaml \
+  --vip 192.168.20.200 --vip-interface eth0
+```
+
+After a minute or so I can ping this VIP and also query the Kubernetes API:
+
+```
+% while true ; do ping -c 1 192.168.20.200 ; sleep 5 ; done
+PING 192.168.20.200 (192.168.20.200) 56(84) bytes of data.
+From 192.168.1.1 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.20.200 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+PING 192.168.20.200 (192.168.20.200) 56(84) bytes of data.
+From 192.168.1.1 icmp_seq=1 Destination Host Unreachable
+
+--- 192.168.20.200 ping statistics ---
+1 packets transmitted, 0 received, +1 errors, 100% packet loss, time 0ms
+
+PING 192.168.20.200 (192.168.20.200) 56(84) bytes of data.
+64 bytes from 192.168.20.200: icmp_seq=1 ttl=63 time=0.827 ms
+
+--- 192.168.20.200 ping statistics ---
+1 packets transmitted, 1 received, 0% packet loss, time 0ms
+rtt min/avg/max/mdev = 0.827/0.827/0.827/0.000 ms
+```
+
+```
+% kubie ctx rke2
+% kubectl get nodes -o wide
+NAME      STATUS   ROLES                       AGE   VERSION          INTERNAL-IP      EXTERNAL-IP   OS-IMAGE             KERNEL-VERSION      CONTAINER-RUNTIME
+server0   Ready    control-plane,etcd,master   45s   v1.21.5+rke2r2   192.168.20.166   <none>        openSUSE Leap 15.3   5.3.18-57-default   containerd://1.4.11-k3s1
+```
+
+With my control plane VIP up and my first server responding to requests, I can join the additional server nodes and then my agents.  Note that the for the `--server-ip` option I'm now using my VIP:
+
+```
+% for server in server{1..2} ; do
+  k2sup join --ip $(govc vm.ip /42can/vm/$server) --server \
+  --server-ip 192.168.20.200 --user nick \
+  --config $(pwd)/server-config.yaml
+done
+```
+
+```
+% kubectl get nodes
+NAME      STATUS   ROLES                       AGE     VERSION
+server0   Ready    control-plane,etcd,master   5m23s   v1.21.5+rke2r2
+server1   Ready    control-plane,etcd,master   98s     v1.21.5+rke2r2
+server2   Ready    control-plane,etcd,master   35s     v1.21.5+rke2r2
+```
+
+```
+% for agent in $(for node in agent{0..4} ; do govc vm.ip /42can/vm/$node ; done) ; do 
+  echo $agent ; done | parallel -v -I% k2sup join --ip % \
+  --server-ip 192.168.20.200 --user nick
+```
+
+```
+% kubectl get nodes
+NAME      STATUS   ROLES                       AGE     VERSION
+agent0    Ready    <none>                      60s     v1.21.5+rke2r2
+agent1    Ready    <none>                      56s     v1.21.5+rke2r2
+agent2    Ready    <none>                      54s     v1.21.5+rke2r2
+agent3    Ready    <none>                      35s     v1.21.5+rke2r2
+agent4    Ready    <none>                      38s     v1.21.5+rke2r2
+server0   Ready    control-plane,etcd,master   8m7s    v1.21.5+rke2r2
+server1   Ready    control-plane,etcd,master   4m22s   v1.21.5+rke2r2
+server2   Ready    control-plane,etcd,master   3m19s   v1.21.5+rke2r2
 ```
 
 _(NB: I use [kubie](https://github.com/sbstp/kubie) to switch between cluster contexts)_
