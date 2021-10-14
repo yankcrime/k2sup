@@ -1,4 +1,5 @@
+---
 node-taint:
   - "CriticalAddonsOnly=true:NoExecute"
-cni:
-  - "cilium"
+tls-san:
+  - rke2.192.168.20.200.dnsify.me

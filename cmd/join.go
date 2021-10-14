@@ -3,9 +3,9 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"os"
 	"runtime"
 	"strings"
-	"os"
 
 	operator "github.com/alexellis/k3sup/pkg/operator"
 	"github.com/pkg/errors"
@@ -226,9 +226,9 @@ func MakeJoin() *cobra.Command {
 
 		var boostrapErr error
 		if server {
-			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, printCommand)
+			boostrapErr = setupAdditionalServer(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, sudoPrefix, printCommand)
 		} else {
-			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, printCommand)
+			boostrapErr = setupAgent(serverHost, host, port, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, sudoPrefix, printCommand)
 		}
 
 		return boostrapErr
@@ -261,7 +261,7 @@ func MakeJoin() *cobra.Command {
 	return command
 }
 
-func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile string, registriesFile string, printCommand bool) error {
+func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, sudoPrefix string, printCommand bool) error {
 	address := fmt.Sprintf("%s:%d", host, port)
 
 	var sshOperator *operator.SSHOperator
@@ -317,7 +317,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	defer sshOperator.Close()
 
-	sshOperator.Execute(fmt.Sprintf("sudo mkdir -p " + rke2ConfigPath))
+	sshOperator.Execute(fmt.Sprintf("%s mkdir -p "+rke2ConfigPath, sudoPrefix))
 
 	if configFile != "" {
 		f, err := os.Open(configFile)
@@ -375,7 +375,7 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 	return nil
 }
 
-func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile string, printCommand bool) error {
+func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, rke2Version, rke2Channel, configFile, registriesFile, sudoPrefix string, printCommand bool) error {
 
 	address := fmt.Sprintf("%s:%d", host, port)
 

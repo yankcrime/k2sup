@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	operator "github.com/alexellis/k3sup/pkg/operator"
 
@@ -35,7 +36,107 @@ const getScript = "curl -sfL https://get.rke2.io"
 
 const rke2ConfigPath = "/etc/rancher/rke2/"
 const rke2ConfigFile = rke2ConfigPath + "config.yaml"
+const rke2ManifestsDir = "/var/lib/rancher/rke2/server/manifests"
 const containerdRegistriesFile = rke2ConfigPath + "registries.yaml"
+
+const kubeVipManifest = `---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-vip
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  annotations:
+    rbac.authorization.kubernetes.io/autoupdate: "true"
+  name: system:kube-vip-role
+rules:
+  - apiGroups: [""]
+    resources: ["services", "services/status", "nodes"]
+    verbs: ["list","get","watch", "update"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["list", "get", "watch", "update", "create"]
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: system:kube-vip-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:kube-vip-role
+subjects:
+- kind: ServiceAccount
+  name: kube-vip
+  namespace: kube-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  creationTimestamp: null
+  name: kube-vip-ds
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: kube-vip-ds
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        name: kube-vip-ds
+    spec:
+      containers:
+      - args:
+        - manager
+        env:
+        - name: vip_arp
+          value: "true"
+        - name: vip_interface
+          value: .INTERFACE
+        - name: port
+          value: "6443"
+        - name: vip_cidr
+          value: "32"
+        - name: cp_enable
+          value: "true"
+        - name: cp_namespace
+          value: kube-system
+        - name: svc_enable
+          value: "false"
+        - name: vip_address
+          value: .VIP
+        image: ghcr.io/kube-vip/kube-vip:v0.3.7
+        imagePullPolicy: Always
+        name: kube-vip
+        resources: {}
+        securityContext:
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            - SYS_TIME
+      hostNetwork: true
+      nodeSelector:
+        node-role.kubernetes.io/master: "true"
+      serviceAccountName: kube-vip
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+  updateStrategy: {}
+status:
+  currentNumberScheduled: 0
+  desiredNumberScheduled: 0
+  numberMisscheduled: 0
+  numberReady: 0
+`
 
 // MakeInstall creates the install command
 func MakeInstall() *cobra.Command {
@@ -82,6 +183,8 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or pinned v1.19")
 	command.Flags().String("config", "", "RKE2 configuration file to use")
 	command.Flags().String("registries", "", "containerd registry configuration file to use")
+	command.Flags().String("vip", "", "Specify a virtual IP (VIP) to use for the control plane")
+	command.Flags().String("vip-interface", "eth0", "Specify the network interface to use for the VIP")
 
 	command.PreRunE = func(command *cobra.Command, args []string) error {
 		_, err := command.Flags().GetIP("ip")
@@ -167,6 +270,16 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
+		vip, err := command.Flags().GetString("vip")
+		if err != nil {
+			return err
+		}
+
+		vipInterface, err := command.Flags().GetString("vip-interface")
+		if err != nil {
+			return err
+		}
+
 		installRKE2Exec := "INSTALL_RKE2_EXEC='server'"
 
 		if len(rke2Version) == 0 && len(rke2Channel) == 0 {
@@ -239,9 +352,23 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 
 		defer sshOperator.Close()
 
-		sshOperator.Execute(fmt.Sprintf("sudo mkdir -p " + rke2ConfigPath))
+		sshOperator.Execute(fmt.Sprintf("%s mkdir -p "+rke2ConfigPath, sudoPrefix))
 
 		if !skipInstall {
+			if vip != "" {
+				vipReplace := strings.NewReplacer(
+					".VIP", vip,
+					".INTERFACE", vipInterface,
+				)
+				m := vipReplace.Replace(kubeVipManifest)
+				vipConfig := fmt.Sprintf("echo '%s' | %s tee %s/vip.yaml >/dev/null", m, sudoPrefix, rke2ManifestsDir)
+				sshOperator.Execute(fmt.Sprintf("%s mkdir -p %s", sudoPrefix, rke2ManifestsDir))
+				_, err := sshOperator.Execute(vipConfig)
+				if err != nil {
+					return err
+				}
+			}
+
 			if configFile != "" {
 				f, err := os.Open(configFile)
 				if err != nil {
