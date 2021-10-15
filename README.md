@@ -1,9 +1,18 @@
 # k2sup
-This is an awful fork of Alex Ellis' [k3sup](https://github.com/alexellis/k3sup) - a light-weight utility to get from zero to KUBECONFIG, originally with K3s but now with [RKE2](https://rke2.io/) instead. All you need is `ssh` access and the `k2sup` binary to get `kubectl` access fairly quickly.
+This is an awful hack of a fork of Alex Ellis' [k3sup](https://github.com/alexellis/k3sup) - a light-weight utility to get from zero to KUBECONFIG, originally with K3s but now with [RKE2](https://rke2.io/) instead. All you need is `ssh` access and the `k2sup` binary to get `kubectl` access fairly quickly.
 
 RKE2 is downstream from K3s, but is just about sufficiently different in its installation approach (and probably target audience) that a fork makes sense.
 
 The tool is written in Go and is cross-compiled for Linux, Windows, and MacOS.
+
+## Noteworthy Options
+The `k2sup` `install` and `join` commands support many of the same options as k3sup, with a few notable differences:
+
+* `--config`: Supply a configuration file that will be dropped into place on the target node as `/etc/rancher/rke2/config.yaml`.  Since the RKE2 install script doesn't pass through the same number of options as the one for K3s, this is how custom configuration needs to be applied.  Note that RKE2 supports different options whether it's a [server](https://docs.rke2.io/install/install_options/server_config/) or an [agent](https://docs.rke2.io/install/install_options/linux_agent_config/).
+* `--registries`: Supply a [custom containerd registry configuration](https://docs.rke2.io/install/containerd_registry_configuration/).
+* `--channel`: Specify which [release channel](https://docs.rke2.io/upgrade/basic_upgrade/#release-channels) to use.
+* `--vip`: The IP of the VIP for the control plane that you'd like to have kube-vip deploy and manage. [See below for details](#Installing-with-a-VIP-for-the-Control-Plane).
+* `--vip-interface`: The network interface to associate with the above VIP. Defaults to `eth0`.
 
 ## Use
 In this example, I've six virtual machines deployed on vSphere.  I'm using [govc](https://github.com/vmware/govmomi) to query the VM's IP addresses in lieu of DNS, and I have the following server configuration in `server-config.yaml` in my current directory:
