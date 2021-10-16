@@ -169,20 +169,20 @@ func MakeInstall() *cobra.Command {
 	command.Flags().Int("ssh-port", 22, "The port on which to connect for ssh")
 	command.Flags().Bool("sudo", true, "Use sudo for installation. e.g. set to false when using the root user and no sudo is available.")
 	command.Flags().Bool("skip-install", false, "Skip the RKE2 installer")
-	command.Flags().Bool("print-config", false, "Print the kubeconfig obtained from the server after installation")
+	command.Flags().Bool("print-kubeconfig", false, "Print the kubeconfig obtained from the server after installation")
 
 	command.Flags().String("local-path", "kubeconfig", "Local path to save the kubeconfig file")
 	command.Flags().String("context", "default", "Set the name of the kubeconfig context.")
 
-	command.Flags().Bool("merge", false, `Merge the config with existing kubeconfig if it already exists.
+	command.Flags().Bool("merge", false, `Merge the new kubeconfig with an existing kubeconfig if it already exists.
 Provide the --local-path flag with --merge if a kubeconfig already exists in some other directory`)
 
 	command.Flags().Bool("print-command", false, "Print a command that you can use with SSH to manually recover from an error")
 
 	command.Flags().String("version", "", "Set a version to install, overrides channel")
-	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, or pinned v1.19")
+	command.Flags().String("channel", PinnedChannel, "Release channel: stable, latest, v1.18, v1.19, v1.20, v1.21")
 	command.Flags().String("config", "", "RKE2 configuration file to use")
-	command.Flags().String("registries", "", "containerd registry configuration file to use")
+	command.Flags().String("registries", "", "Specify a containerd registry configuration file to use")
 	command.Flags().String("vip", "", "Specify a virtual IP (VIP) to use for the control plane")
 	command.Flags().String("vip-interface", "eth0", "Specify the network interface to use for the VIP")
 
@@ -214,7 +214,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 			return err
 		}
 
-		printConfig, err := command.Flags().GetBool("print-config")
+		printConfig, err := command.Flags().GetBool("print-kubeconfig")
 		if err != nil {
 			return err
 		}

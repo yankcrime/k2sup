@@ -341,9 +341,9 @@ func setupAdditionalServer(serverHost, host string, port int, user, sshKeyPath, 
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
-	populateConfig := fmt.Sprintf("echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
-	installAgentServerCommand := fmt.Sprintf("%s | sudo %s", getScript, installRKE2Exec)
-	ensureSystemdcommand := "sudo systemctl enable --no-block --now rke2-server"
+	populateConfig := fmt.Sprintf("echo '%s' | %s tee -a "+rke2ConfigFile, rkeConfig, sudoPrefix)
+	installAgentServerCommand := fmt.Sprintf("%s | %s %s", getScript, sudoPrefix, installRKE2Exec)
+	ensureSystemdcommand := fmt.Sprintf("%s systemctl enable --no-block --now rke2-server", sudoPrefix)
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentServerCommand)
@@ -428,7 +428,7 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 
 	defer sshOperator.Close()
 
-	sshOperator.Execute(fmt.Sprintf("sudo mkdir -p " + rke2ConfigPath))
+	sshOperator.Execute(fmt.Sprintf("%s mkdir -p " + rke2ConfigPath, sudoPrefix))
 
 	if configFile != "" {
 		f, err := os.Open(configFile)
@@ -453,10 +453,10 @@ func setupAgent(serverHost, host string, port int, user, sshKeyPath, joinToken, 
 
 	rkeConfig := makeConfig(serverHost, strings.TrimSpace(joinToken))
 
-	populateConfig := fmt.Sprintf("echo '%s' | sudo tee -a "+rke2ConfigFile, rkeConfig)
-	ensureSystemdcommand := "sudo systemctl enable --no-block --now rke2-agent"
+	populateConfig := fmt.Sprintf("echo '%s' | %s tee -a "+rke2ConfigFile, rkeConfig, sudoPrefix)
+	ensureSystemdcommand := fmt.Sprintf("%s systemctl enable --no-block --now rke2-agent", sudoPrefix)
 
-	installAgentCommand := fmt.Sprintf("%s | sudo %s", getScript, installRKE2Exec)
+	installAgentCommand := fmt.Sprintf("%s | %s %s", getScript, sudoPrefix, installRKE2Exec)
 
 	if printCommand {
 		fmt.Printf("ssh: %s\n", installAgentCommand)
