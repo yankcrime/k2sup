@@ -15,6 +15,9 @@ The `k2sup` `install` and `join` commands support many of the same options as k3
 * `--vip-interface`: The network interface to associate with the above VIP. Defaults to `eth0`.
 
 ## Use
+
+> NB: `k2sup` presumes the precreation of an existing set of machines onto which you want to deploy Kubernetes.
+
 In this example, I've six virtual machines deployed on vSphere.  I'm using [govc](https://github.com/vmware/govmomi) to query the VM's IP addresses in lieu of DNS, and I have the following server configuration in `server-config.yaml` in my current directory:
 
 ```yaml
@@ -30,7 +33,8 @@ tls-san:
 This will:
 * [Taint server nodes](https://docs.rke2.io/install/ha/#2a-optional-consider-server-node-taints) so that they are not schedulable by user workloads;
 * Use [Cilium](https://cilium.io) as the CNI;
-* Specify an additional IP address and hostname that can be used to connect to the cluster's API.  A post-deployment step would be to configure a loadbalancer or a VIP on `192.168.20.200` which should balance requests across our three server nodes.  Alternatively, see the section below on deploying with a VIP for the control plane.
+* Specify an additional IP address and hostname that can be used to connect to the cluster's API.  A post-deployment step would be to configure a loadbalancer or a VIP on `192.168.20.200` which should balance requests across our three server nodes.  Alternatively, see the section below on deploying with a VIP for the control plane;
+* Add TLS [Subject Alternative Names](https://en.wikipedia.org/wiki/Subject_Alternative_Name) (SANs) for this additional IP address and hostname so that kubectl works when hitting the Kubernetes API with either of these two values.
 
 With this configuration we can install the first node in our cluster:
 
