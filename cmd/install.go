@@ -109,7 +109,7 @@ spec:
           value: "false"
         - name: vip_address
           value: .VIP
-        image: ghcr.io/kube-vip/kube-vip:v0.3.7
+        image: ghcr.io/kube-vip/kube-vip:v0.4.1
         imagePullPolicy: Always
         name: kube-vip
         resources: {}
@@ -406,6 +406,7 @@ Provide the --local-path flag with --merge if a kubeconfig already exists in som
 		if printCommand {
 			fmt.Printf("ssh: %s\n", getConfigcommand)
 		}
+		// Give some time for RKE2 to start and generate our kubeconfig file
 		r := 0
 		for r < 5 {
 			err = obtainKubeconfig(sshOperator, getConfigcommand, host, vip, context, localKubeconfig, merge, printConfig)
